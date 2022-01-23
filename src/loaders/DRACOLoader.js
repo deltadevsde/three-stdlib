@@ -1,5 +1,5 @@
 import { BufferAttribute, BufferGeometry, FileLoader, Loader } from 'three'
-
+import { decoder } from '../draco/draco_decoder'
 const _taskCache = new WeakMap()
 
 class DRACOLoader extends Loader {
@@ -200,35 +200,19 @@ class DRACOLoader extends Loader {
   _initDecoder() {
     if (this.decoderPending) return this.decoderPending
 
-    const useJS = typeof WebAssembly !== 'object' || this.decoderConfig.type === 'js'
-    const librariesPending = []
-
-    if (useJS) {
-      librariesPending.push(this._loadLibrary('draco_decoder.js', 'text'))
-    } else {
-      librariesPending.push(this._loadLibrary('draco_wasm_wrapper.js', 'text'))
-      librariesPending.push(this._loadLibrary('draco_decoder.wasm', 'arraybuffer'))
-    }
-
-    this.decoderPending = Promise.all(librariesPending).then((libraries) => {
-      const jsContent = libraries[0]
-
-      if (!useJS) {
-        this.decoderConfig.wasmBinary = libraries[1]
-      }
+    this.decoderPending = true;
 
       const fn = DRACOWorker.toString()
 
       const body = [
         '/* draco decoder */',
-        jsContent,
+        decoder,
         '',
         '/* worker */',
         fn.substring(fn.indexOf('{') + 1, fn.lastIndexOf('}')),
       ].join('\n')
 
       this.workerSourceURL = URL.createObjectURL(new Blob([body]))
-    })
 
     return this.decoderPending
   }
